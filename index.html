@@ -54,11 +54,24 @@
     .section-heading { display:flex; justify-content:space-between; align-items:end; gap:20px; margin:0 0 18px; }
     .section-heading h2 { margin:0; font-size:clamp(1.6rem,4vw,2.4rem); }
     .count { color:var(--muted); font-size:.95rem; }
-    .cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
-    .card { display:flex; flex-direction:column; gap:15px; min-height:275px; padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 5px 18px rgba(30,42,36,.04); }
+    .section-tools { display:flex; align-items:center; gap:12px; }
+    .view-toggle { display:flex; gap:4px; padding:4px; border:1px solid var(--border); border-radius:12px; background:#f7faf7; }
+    .view-button { width:auto; padding:7px 10px; border:0; border-radius:8px; color:var(--muted); background:transparent; cursor:pointer; font-size:.84rem; font-weight:700; }
+    .view-button.active { color:var(--primary-dark); background:#dfeee3; }
+    .cards { display:grid; gap:14px; }
+    .cards-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .cards-list { grid-template-columns:1fr; gap:10px; }
+    .card { display:flex; flex-direction:column; gap:12px; min-height:220px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 5px 18px rgba(30,42,36,.04); }
+    .cards-list .card { display:grid; grid-template-columns:72px minmax(0,1fr) auto; align-items:center; gap:16px; min-height:0; padding:14px 18px; }
+    .cards-list .card > div:nth-child(2) { min-width:0; }
+    .cards-list .card .owner { margin-top:0; padding-top:0; border-top:0; text-align:right; }
     .card-top { display:flex; justify-content:space-between; align-items:start; gap:12px; }
     .icon { display:grid; place-items:center; width:48px; height:48px; flex:0 0 auto; border-radius:14px; background:#e7f1ea; font-size:1.55rem; }
     .tag { display:inline-block; padding:5px 9px; border-radius:999px; color:var(--primary-dark); background:#edf5ef; font-size:.78rem; font-weight:700; }
+    .availability { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font-size:.78rem; font-weight:800; }
+    .availability::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .availability.available { color:#237548; background:#e2f4e7; }
+    .availability.unavailable { color:#ad6b16; background:#fff0d7; }
     .card h3 { margin:0; font-size:1.25rem; }
     .card p { margin:0; color:var(--muted); }
     .owner { margin-top:auto; padding-top:14px; border-top:1px solid var(--border); font-size:.9rem; }
@@ -89,8 +102,8 @@
     .submit:disabled { opacity:.6; cursor:wait; }
     .notice { margin-top:13px; color:var(--muted); font-size:.83rem; }
     footer { padding:25px 0 35px; color:var(--muted); font-size:.85rem; text-align:center; }
-    @media (max-width:800px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } }
-    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:inline-flex; padding:8px 11px; font-size:.82rem; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .add-box { padding:21px; } }
+    @media (max-width:800px) { .cards-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } }
+    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:inline-flex; padding:8px 11px; font-size:.82rem; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .cards-grid { grid-template-columns:1fr; } .cards-list .card { grid-template-columns:56px minmax(0,1fr); gap:12px; padding:13px; } .cards-list .card .owner { grid-column:1/-1; width:100%; padding-top:11px; border-top:1px solid var(--border); text-align:left; } .cards-list .card .actions { justify-content:flex-start; } .add-box { padding:21px; } }
   </style>
 </head>
 <body>
@@ -138,9 +151,15 @@
     <section aria-labelledby="catalogue-title">
       <div class="section-heading">
         <h2 id="catalogue-title">Objets disponibles dans la copropriété</h2>
-        <div class="count" id="count"></div>
+        <div class="section-tools">
+          <div class="count" id="count"></div>
+          <div class="view-toggle" aria-label="Choisir l’affichage">
+            <button id="grid-view" class="view-button active" type="button" aria-pressed="true">▦ Cartes</button>
+            <button id="list-view" class="view-button" type="button" aria-pressed="false">☷ Liste</button>
+          </div>
+        </div>
       </div>
-      <div class="cards" id="cards"></div>
+      <div class="cards cards-grid" id="cards"></div>
     </section>
 
     <section class="how" aria-label="Comment ça marche">
@@ -212,25 +231,37 @@
 
   <script>
     // Après le déploiement du script Google Apps Script, coller ici son URL /exec.
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyw4Qti_yBA_OgCdc6cMYBjhVucOllDtZwZ8myWm3Dt10iXtTLN0jvXYU9KRpJRPht2/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbw3qz5wxzu_PUbOyEYQBy8Q6FuDfPrYAytG_r3y7fI/exec';
     const DEMO_ITEMS = [
       { id:'demo-1', name:'Aspirateur de chantier', category:'bricolage', emoji:'🧹', owner:'Alexandre, appartement 12', whatsapp:'', description:'Pour poussières, gravats et petits travaux.', available:true },
       { id:'demo-2', name:'Perceuse-visseuse', category:'bricolage', emoji:'🔧', owner:'Sophie, appartement 7', whatsapp:'', description:'Sans fil, avec chargeur et embouts courants.', available:true },
       { id:'demo-3', name:'Appareil à raclette', category:'cuisine', emoji:'🧀', owner:'Thomas, appartement 18', whatsapp:'', description:'Pour 8 personnes, spatules fournies.', available:true }
     ];
     let items = [];
+    let viewMode = localStorage.getItem('duhesme-view') === 'list' ? 'list' : 'grid';
     const $ = selector => document.querySelector(selector);
     const statusBox = $('#status');
 
     function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c])); }
     function categoryLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Autre'; }
     function setStatus(message, error = false) { statusBox.textContent = message; statusBox.classList.toggle('error', error); }
-    function whatsappUrl(phone, itemName) {
+    function setView(mode) {
+      viewMode = mode === 'list' ? 'list' : 'grid';
+      localStorage.setItem('duhesme-view', viewMode);
+      $('#cards').classList.toggle('cards-grid', viewMode === 'grid');
+      $('#cards').classList.toggle('cards-list', viewMode === 'list');
+      $('#grid-view').classList.toggle('active', viewMode === 'grid');
+      $('#list-view').classList.toggle('active', viewMode === 'list');
+      $('#grid-view').setAttribute('aria-pressed', String(viewMode === 'grid'));
+      $('#list-view').setAttribute('aria-pressed', String(viewMode === 'list'));
+    }
+    function whatsappUrl(phone, itemName, owner) {
       let digits = String(phone || '').replace(/\D/g, '');
       if (digits.startsWith('0')) digits = '33' + digits.slice(1);
       if (!digits) return '';
-      const text = encodeURIComponent(`Bonjour, je vous contacte au sujet du prêt de « ${itemName} » dans la copropriété.`);
-      return `https://wa.me/${digits}?text=${text}`;
+      const firstName = String(owner || '').split(',')[0].trim() || 'voisin';
+      const message = `Salut ${firstName}, je te contacte depuis la plateforme de partage des objets du 99 rue Duhesme. Je serai intéressé par "${itemName}". Est-ce possible de te l’emprunter du xx au xx ? Merci beaucoup !`;
+      return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
     }
     function showCode(itemName, id, code) {
       $('#code-object').textContent = itemName;
@@ -282,12 +313,12 @@
         return (!query || text.includes(query)) && (selectedCategory === 'all' || item.category === selectedCategory) && (selectedAvailability === 'all' || (selectedAvailability === 'available' && item.available) || (selectedAvailability === 'unavailable' && !item.available));
       });
       $('#count').textContent = `${filtered.length} objet${filtered.length > 1 ? 's' : ''}`;
-      const cards = $('#cards'); cards.innerHTML = '';
+      const cards = $('#cards'); setView(viewMode); cards.innerHTML = '';
       if (!filtered.length) { cards.innerHTML = '<div class="empty">Aucun objet ne correspond à votre recherche.</div>'; return; }
       filtered.forEach(item => {
         const card = document.createElement('article'); card.className = 'card';
-        const link = whatsappUrl(item.whatsapp, item.name); const canManage = item.id && !String(item.id).startsWith('demo-');
-        card.innerHTML = `<div class="card-top"><div class="icon" aria-hidden="true">${escapeHtml(item.emoji || '📦')}</div><span class="tag">${escapeHtml(categoryLabel(item.category))}</span></div><div><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description || 'Pas de description renseignée.')}</p></div><div class="owner"><strong>${escapeHtml(item.owner)}</strong><br><span>${item.available ? 'Disponible' : 'Indisponible'}</span><div class="actions">${link ? `<a class="contact" href="${link}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="help">Numéro WhatsApp non renseigné</span>'}${canManage ? `<button class="remove edit-button" type="button" data-id="${escapeHtml(item.id)}">✏️ Modifier</button><button class="remove" type="button" data-id="${escapeHtml(item.id)}">🗑️ Retirer</button>` : ''}</div></div>`;
+        const link = whatsappUrl(item.whatsapp, item.name, item.owner); const canManage = item.id && !String(item.id).startsWith('demo-');
+        card.innerHTML = `<div class="card-top"><div class="icon" aria-hidden="true">${escapeHtml(item.emoji || '📦')}</div><span class="tag">${escapeHtml(categoryLabel(item.category))}</span></div><div><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description || 'Pas de description renseignée.')}</p></div><div class="owner"><strong>${escapeHtml(item.owner)}</strong><br><span class="availability ${item.available ? 'available' : 'unavailable'}">${item.available ? 'Disponible' : 'Indisponible'}</span><div class="actions">${link ? `<a class="contact" href="${link}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="help">Numéro WhatsApp non renseigné</span>'}${canManage ? `<button class="remove edit-button" type="button" data-id="${escapeHtml(item.id)}">✏️ Modifier</button><button class="remove" type="button" data-id="${escapeHtml(item.id)}">🗑️ Retirer</button>` : ''}</div></div>`;
         cards.appendChild(card);
       });
       cards.querySelectorAll('.edit-button').forEach(button => button.addEventListener('click', () => editItem(button.dataset.id)));
@@ -340,7 +371,10 @@
     $('#admin-contact').addEventListener('click', openHelp);
     $('#code-help').addEventListener('click', openHelp);
     $('#close-help').addEventListener('click', () => $('#help-dialog').close());
-    ['#search','#category','#availability'].forEach(selector => $(selector).addEventListener('input', render)); loadItems();
+    $('#grid-view').addEventListener('click', () => { setView('grid'); render(); });
+    $('#list-view').addEventListener('click', () => { setView('list'); render(); });
+    ['#search','#category','#availability'].forEach(selector => $(selector).addEventListener('input', render));
+    setView(viewMode); loadItems();
   </script>
 </body>
 </html>
