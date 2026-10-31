@@ -30,6 +30,11 @@
     .status { margin:0 0 22px; padding:12px 15px; color:var(--primary-dark); background:#e7f1ea; border:1px solid #c9dfce; border-radius:12px; font-size:.9rem; }
     .status.error { color:#783434; background:#f9eaea; border-color:#eccaca; }
     .status:empty { display:none; }
+    .validation-feedback { position:fixed; top:16px; left:50%; z-index:20; width:max-content; max-width:calc(100% - 28px); padding:12px 16px; border-radius:999px; color:#fff; text-align:center; font-size:.92rem; font-weight:800; box-shadow:0 10px 30px rgba(0,0,0,.18); opacity:0; pointer-events:none; transform:translate(-50%,-18px) scale(.96); }
+    .validation-feedback.show { animation:feedback-pop 2.6s ease both; }
+    .validation-feedback.success { background:#23814e; }
+    .validation-feedback.failure { background:#a74848; }
+    @keyframes feedback-pop { 0% { opacity:0; transform:translate(-50%,-18px) scale(.96); } 12%,78% { opacity:1; transform:translate(-50%,0) scale(1); } 100% { opacity:0; transform:translate(-50%,-8px) scale(.98); } }
     .manage-box { margin:0 0 34px; padding:24px; background:#fff8e9; border:1px solid #ecd49b; border-radius:var(--radius); }
     .manage-box h2 { margin:0 0 7px; }
     .manage-box p { margin:0 0 15px; color:var(--muted); }
@@ -102,7 +107,7 @@
     .notice { margin-top:13px; color:var(--muted); font-size:.83rem; }
     footer { padding:25px 0 35px; color:var(--muted); font-size:.85rem; text-align:center; }
     @media (max-width:800px) { .cards-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } }
-    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:inline-flex; padding:8px 11px; font-size:.82rem; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .cards-grid { grid-template-columns:1fr; } .cards-list .card { grid-template-columns:56px minmax(0,1fr); gap:12px; padding:13px; } .cards-list .card .owner { grid-column:1/-1; width:100%; padding-top:11px; border-top:1px solid var(--border); text-align:left; } .cards-list .card .actions { justify-content:flex-start; } .add-box { padding:21px; } }
+    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:inline-flex; padding:8px 11px; font-size:.82rem; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .cards-grid { grid-template-columns:1fr; } .cards-list .card { grid-template-columns:52px minmax(0,1fr); grid-template-areas:"icon content" "tag tag" "owner owner"; gap:8px 12px; padding:13px; } .cards-list .card-top { display:contents; } .cards-list .card .icon { grid-area:icon; align-self:start; } .cards-list .card .tag { grid-area:tag; justify-self:start; margin-top:1px; } .cards-list .card > div:nth-child(2) { grid-area:content; align-self:start; min-width:0; } .cards-list .card .owner { grid-area:owner; width:100%; padding-top:11px; border-top:1px solid var(--border); text-align:left; } .cards-list .card .actions { justify-content:flex-start; } .add-box { padding:21px; } }
   </style>
 </head>
 <body>
@@ -122,6 +127,7 @@
 
   <main class="container">
     <div id="status" class="status" role="status"></div>
+    <div id="validation-feedback" class="validation-feedback" role="status" aria-live="polite"></div>
     <section class="toolbar" aria-label="Filtres">
       <input id="search" type="search" placeholder="Rechercher un objet…" aria-label="Rechercher un objet">
       <select id="category" aria-label="Filtrer par catégorie">
@@ -237,6 +243,13 @@
     function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c])); }
     function categoryLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Autre'; }
     function setStatus(message, error = false) { statusBox.textContent = message; statusBox.classList.toggle('error', error); }
+    function showValidation(type, message) {
+      const feedback = $('#validation-feedback');
+      feedback.className = `validation-feedback ${type === 'success' ? 'success' : 'failure'} show`;
+      feedback.textContent = message;
+      window.clearTimeout(feedback._timer);
+      feedback._timer = window.setTimeout(() => { feedback.className = 'validation-feedback'; }, 2700);
+    }
     function setView(mode) {
       viewMode = mode === 'list' ? 'list' : 'grid'; localStorage.setItem('duhesme-view', viewMode);
       $('#cards').classList.toggle('cards-grid', viewMode === 'grid'); $('#cards').classList.toggle('cards-list', viewMode === 'list');
@@ -244,6 +257,14 @@
       $('#grid-view').setAttribute('aria-pressed', String(viewMode === 'grid')); $('#list-view').setAttribute('aria-pressed', String(viewMode === 'list'));
     }
     function normalizePhone(phone) { return String(phone || '').replace(/\D/g, ''); }
+    function shuffle(list) {
+      const result = [...list];
+      for (let index = result.length - 1; index > 0; index--) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [result[index], result[randomIndex]] = [result[randomIndex], result[index]];
+      }
+      return result;
+    }
     function whatsappUrl(phone, itemName, owner) {
       let digits = normalizePhone(phone); if (digits.startsWith('0')) digits = '33' + digits.slice(1); if (!digits) return '';
       const firstName = String(owner || '').split(',')[0].trim() || 'voisin';
@@ -268,8 +289,8 @@
       emojiSuggestions($('#item-name').value).forEach(icon => { const button=document.createElement('button'); button.type='button'; button.className='suggestion'; button.textContent=icon; button.title=`Utiliser ${icon}`; button.addEventListener('click',()=>{ const field=$('#item-emoji'); field.value=field.value ? `${field.value}${icon}` : icon; field.focus(); }); box.appendChild(button); });
     }
     async function loadItems() {
-      if (!API_URL) { items=DEMO_ITEMS; setStatus('Mode aperçu actif. Après avoir collé l’URL Google Apps Script dans le fichier, les données seront partagées avec toute la copropriété.'); render(); return; }
-      try { const response=await fetch(`${API_URL}?action=list`,{cache:'no-store'}); const data=await response.json(); if(!data.ok) throw new Error(data.error||'Erreur de lecture'); items=data.items||[]; setStatus('Catalogue synchronisé avec Google Sheets.'); render(); }
+      if (!API_URL) { items=shuffle(DEMO_ITEMS); setStatus('Mode aperçu actif. Après avoir collé l’URL Google Apps Script dans le fichier, les données seront partagées avec toute la copropriété.'); render(); return; }
+      try { const response=await fetch(`${API_URL}?action=list`,{cache:'no-store'}); const data=await response.json(); if(!data.ok) throw new Error(data.error||'Erreur de lecture'); items=shuffle(data.items||[]); setStatus('Catalogue synchronisé avec Google Sheets.'); render(); }
       catch(error) { items=[]; setStatus('Impossible de charger le catalogue Google Sheets. Vérifiez l’URL du script et son accès public.',true); render(); }
     }
     function render() {
@@ -282,13 +303,13 @@
     }
     async function findItemsByPhone(phone) { const result=await post({action:'find',phone:phone.trim()}); if(!result.ok) throw new Error(result.error||'Numéro introuvable.'); return result.items||[]; }
     function openEditDialog(item, phone) { $('#edit-id').value=item.id; $('#edit-phone').value=phone; $('#edit-name').value=item.name||''; $('#edit-owner').value=item.owner||''; $('#edit-category').value=item.category||'autre'; $('#edit-emoji').value=item.emoji||'📦'; $('#edit-whatsapp').value=item.whatsapp||''; $('#edit-available').value=String(Boolean(item.available)); $('#edit-description').value=item.description||''; $('#edit-dialog').showModal(); }
-    async function editItem(id) { const phone=prompt('Entrez le numéro de téléphone associé à cet objet.'); if(!phone||!phone.trim()) return; try { const found=await findItemsByPhone(phone); const item=found.find(candidate=>String(candidate.id)===String(id)); if(!item) throw new Error('Ce numéro ne correspond pas à cet objet.'); openEditDialog(item,phone.trim()); } catch(error) { setStatus(error.message,true); } }
-    async function removeItem(id) { const phone=prompt('Entrez le numéro de téléphone associé à cet objet.'); if(!phone||!phone.trim()||!confirm('Retirer définitivement cet objet du catalogue ?')) return; try { const response=await post({action:'delete',id,phone:phone.trim()}); if(!response.ok) throw new Error(response.error||'Numéro incorrect'); setStatus('Objet retiré du catalogue.'); await loadItems(); } catch(error) { setStatus(error.message||'Impossible de retirer cet objet.',true); } }
+    async function editItem(id) { const phone=prompt('Entrez le numéro de téléphone associé à cet objet.'); if(!phone||!phone.trim()) return; try { const found=await findItemsByPhone(phone); const item=found.find(candidate=>String(candidate.id)===String(id)); if(!item) throw new Error('Ce numéro ne correspond pas à cet objet.'); showValidation('success','✓ Numéro validé'); openEditDialog(item,phone.trim()); } catch(error) { showValidation('failure','✕ Ce n’est pas le bon numéro renseigné pour cet objet'); setStatus(error.message,true); } }
+    async function removeItem(id) { const phone=prompt('Entrez le numéro de téléphone associé à cet objet.'); if(!phone||!phone.trim()||!confirm('Retirer définitivement cet objet du catalogue ?')) return; try { const response=await post({action:'delete',id,phone:phone.trim()}); if(!response.ok) throw new Error(response.error||'Numéro incorrect'); showValidation('success','✓ Numéro validé, objet retiré'); setStatus('Objet retiré du catalogue.'); await loadItems(); } catch(error) { showValidation('failure','✕ Ce n’est pas le bon numéro renseigné pour cet objet'); setStatus(error.message||'Impossible de retirer cet objet.',true); } }
     function renderManageResults(found, phone) { const box=$('#manage-results'); box.innerHTML=''; if(!found.length){box.innerHTML='<div class="notice">Aucun objet ne correspond à ce numéro.</div>';return;} found.forEach(item=>{ const row=document.createElement('div'); row.className='manage-result'; row.innerHTML=`<span><strong>${escapeHtml(item.emoji||'📦')} ${escapeHtml(item.name)}</strong><br><small>${item.available?'Disponible':'Indisponible'}</small></span><button type="button">Modifier</button>`; row.querySelector('button').addEventListener('click',()=>openEditDialog(item,phone)); box.appendChild(row); }); }
     async function post(data) { const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:new URLSearchParams(data)}); return response.json(); }
     $('#add-form').addEventListener('submit',async event=>{ event.preventDefault(); if(!API_URL){setStatus('Le formulaire sera actif après la configuration de Google Sheets. Le mode aperçu ne modifie pas une base partagée.',true);return;} const button=$('#submit-button'); button.disabled=true; try { const result=await post({action:'add',name:$('#item-name').value.trim(),owner:$('#item-owner').value.trim(),category:$('#item-category').value,emoji:$('#item-emoji').value.trim(),whatsapp:$('#item-whatsapp').value.trim(),description:$('#item-description').value.trim()}); if(!result.ok) throw new Error(result.error||'Impossible d’ajouter l’objet'); event.target.reset(); renderSuggestions(); await loadItems(); setStatus('Objet ajouté. Pour le modifier ou le retirer, utilisez le numéro de téléphone renseigné.'); $('#catalogue-title').scrollIntoView({behavior:'smooth'}); } catch(error){setStatus(error.message||'Impossible d’ajouter l’objet.',true);} finally{button.disabled=false;} });
-    $('#manage-button').addEventListener('click',async()=>{ const phone=$('#manage-phone').value.trim(); if(!phone){setStatus('Indiquez le numéro de téléphone utilisé lors de l’ajout.',true);return;} if(!API_URL){setStatus('La gestion sera disponible après la configuration de Google Sheets.',true);return;} try { const found=await findItemsByPhone(phone); renderManageResults(found,phone); } catch(error){setStatus(error.message,true);} });
-    $('#edit-form').addEventListener('submit',async event=>{ event.preventDefault(); try { const result=await post({action:'update',id:$('#edit-id').value,phone:$('#edit-phone').value,name:$('#edit-name').value.trim(),owner:$('#edit-owner').value.trim(),category:$('#edit-category').value,emoji:$('#edit-emoji').value.trim(),whatsapp:$('#edit-whatsapp').value.trim(),description:$('#edit-description').value.trim(),available:$('#edit-available').value}); if(!result.ok) throw new Error(result.error||'Impossible de modifier l’objet.'); $('#edit-dialog').close(); setStatus('Objet modifié.'); await loadItems(); } catch(error){setStatus(error.message,true);} });
+    $('#manage-button').addEventListener('click',async()=>{ const phone=$('#manage-phone').value.trim(); if(!phone){setStatus('Indiquez le numéro de téléphone utilisé lors de l’ajout.',true);return;} if(!API_URL){setStatus('La gestion sera disponible après la configuration de Google Sheets.',true);return;} try { const found=await findItemsByPhone(phone); if(!found.length) throw new Error('Aucun objet ne correspond à ce numéro.'); showValidation('success','✓ Numéro validé'); renderManageResults(found,phone); } catch(error){ showValidation('failure','✕ Numéro non reconnu'); setStatus(error.message,true); } });
+    $('#edit-form').addEventListener('submit',async event=>{ event.preventDefault(); try { const result=await post({action:'update',id:$('#edit-id').value,phone:$('#edit-phone').value,name:$('#edit-name').value.trim(),owner:$('#edit-owner').value.trim(),category:$('#edit-category').value,emoji:$('#edit-emoji').value.trim(),whatsapp:$('#edit-whatsapp').value.trim(),description:$('#edit-description').value.trim(),available:$('#edit-available').value}); if(!result.ok) throw new Error(result.error||'Impossible de modifier l’objet.'); $('#edit-dialog').close(); showValidation('success','✓ Numéro validé, objet modifié'); setStatus('Objet modifié.'); await loadItems(); } catch(error){ showValidation('failure','✕ Modification refusée, numéro non reconnu'); setStatus(error.message,true); } });
     $('#close-dialog').addEventListener('click',()=>$('#edit-dialog').close()); $('#item-name').addEventListener('input',renderSuggestions); renderSuggestions();
     const openHelp=()=>$('#help-dialog').showModal(); $('#admin-contact').addEventListener('click',openHelp); $('#close-help').addEventListener('click',()=>$('#help-dialog').close());
     $('#grid-view').addEventListener('click',()=>{setView('grid');render();}); $('#list-view').addEventListener('click',()=>{setView('list');render();}); ['#search','#category','#availability'].forEach(selector=>$(selector).addEventListener('input',render)); setView(viewMode); loadItems();
