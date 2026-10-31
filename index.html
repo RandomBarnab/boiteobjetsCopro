@@ -30,6 +30,27 @@
     .status { margin:0 0 22px; padding:12px 15px; color:var(--primary-dark); background:#e7f1ea; border:1px solid #c9dfce; border-radius:12px; font-size:.9rem; }
     .status.error { color:#783434; background:#f9eaea; border-color:#eccaca; }
     .status:empty { display:none; }
+    .code-box { margin:0 0 22px; padding:20px; color:#183d2a; background:#e9f7ec; border:2px solid #83c992; border-radius:var(--radius); text-align:center; }
+    .code-box p { margin:0 0 6px; font-weight:700; }
+    .code-box small { display:block; margin-top:9px; color:var(--muted); }
+    .code-value { display:inline-block; margin:5px 0; padding:6px 13px; color:#143a26; background:#fff; border:1px dashed #5aa96d; border-radius:10px; font-size:clamp(1.7rem,5vw,2.5rem); font-weight:900; letter-spacing:.16em; }
+    .copy-button { display:inline-block; width:auto; margin-left:8px; padding:9px 12px; border:1px solid #78b887; border-radius:10px; color:#1c5a31; background:#fff; cursor:pointer; font-weight:700; }
+    .manage-box { margin:0 0 34px; padding:24px; background:#fff8e9; border:1px solid #ecd49b; border-radius:var(--radius); }
+    .manage-box h2 { margin:0 0 7px; }
+    .manage-box p { margin:0 0 15px; color:var(--muted); }
+    .manage-row { display:flex; flex-wrap:wrap; gap:10px; }
+    .manage-row input { flex:1 1 220px; }
+    .manage-button { width:auto; padding:12px 16px; border:0; border-radius:12px; color:#fff; background:#9a6a16; cursor:pointer; font-weight:800; }
+    .admin-contact { width:auto; padding:12px 16px; border:1px solid #d7b66a; border-radius:12px; color:#76510d; background:#fff; cursor:pointer; font-weight:700; }
+    dialog { width:min(620px,calc(100% - 28px)); padding:0; color:var(--ink); border:0; border-radius:var(--radius); box-shadow:0 20px 70px rgba(0,0,0,.25); }
+    dialog::backdrop { background:rgba(15,30,20,.55); }
+    .dialog-content { padding:25px; }
+    .dialog-content h2 { margin:0 0 8px; }
+    .dialog-content > p { margin:0 0 20px; color:var(--muted); }
+    .dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+    .cancel-button { width:auto; padding:11px 15px; border:1px solid var(--border); border-radius:10px; color:var(--ink); background:#fff; cursor:pointer; }
+    .suggestions { display:flex; flex-wrap:wrap; gap:7px; margin-top:5px; }
+    .suggestion { width:auto; padding:5px 9px; border:1px solid var(--border); border-radius:999px; background:#fff; cursor:pointer; font-size:1.15rem; }
     .section-heading { display:flex; justify-content:space-between; align-items:end; gap:20px; margin:0 0 18px; }
     .section-heading h2 { margin:0; font-size:clamp(1.6rem,4vw,2.4rem); }
     .count { color:var(--muted); font-size:.95rem; }
@@ -89,6 +110,14 @@
 
   <main class="container">
     <div id="status" class="status" role="status"></div>
+    <div id="code-box" class="code-box" hidden>
+      <p>Votre code de gestion pour cet objet</p>
+      <strong id="code-object"></strong><br>
+      <span id="code-value" class="code-value"></span>
+      <button id="copy-code" class="copy-button" type="button">Copier</button>
+      <button id="code-help" class="copy-button" type="button">🆘 Besoin d’aide ?</button>
+      <small>Conservez ce code. Il permet de modifier le statut, modifier les informations ou retirer l’objet.</small>
+    </div>
     <section class="toolbar" aria-label="Filtres">
       <input id="search" type="search" placeholder="Rechercher un objet…" aria-label="Rechercher un objet">
       <select id="category" aria-label="Filtrer par catégorie">
@@ -120,6 +149,17 @@
       <article class="step"><span class="step-number">3</span><h3>Je rapporte</h3><p>Je prends soin de l'objet et je le rends propre et complet.</p></article>
     </section>
 
+    <section class="manage-box" aria-labelledby="manage-title">
+      <h2 id="manage-title">Gérer mon objet</h2>
+      <p>Collez le code reçu lors de l’ajout pour modifier les informations, changer le statut ou retirer votre objet.</p>
+      <div class="manage-row">
+        <input id="manage-code" type="text" placeholder="Ex. A8F3K2P1" autocomplete="off" spellcheck="false">
+        <button id="manage-button" class="manage-button" type="button">Gérer mon objet</button>
+        <button id="admin-contact" class="admin-contact" type="button">🆘 Aide / problème / code perdu</button>
+      </div>
+      <div class="notice">Code perdu, problème ou demande de modification ? Cliquez sur le bouton d’aide et contactez Benjamin dans le groupe WhatsApp de la copropriété.</div>
+    </section>
+
     <section class="add-box" id="ajouter" aria-labelledby="add-title">
       <h2 id="add-title">Ajouter un objet à prêter</h2>
       <p>Après l'ajout, un code de retrait personnel sera affiché. Conservez-le, il permettra de retirer votre objet plus tard.</p>
@@ -128,21 +168,49 @@
           <div class="field"><label for="item-name">Objet</label><input id="item-name" required placeholder="Ex. Nettoyeur vapeur"></div>
           <div class="field"><label for="item-owner">Prénom ou appartement</label><input id="item-owner" required placeholder="Ex. Camille, appart. 24"></div>
           <div class="field"><label for="item-category">Catégorie</label><select id="item-category" required><option value="bricolage">Bricolage</option><option value="cuisine">Cuisine</option><option value="ménage">Ménage</option><option value="extérieur">Extérieur</option><option value="autre">Autre</option></select></div>
-          <div class="field"><label for="item-emoji">Émoticône</label><select id="item-emoji" required><option>🔧</option><option>🧹</option><option>🧀</option><option>🍲</option><option>🪜</option><option>💦</option><option>🛠️</option><option>🔌</option><option>📦</option><option>🌿</option><option>🎲</option><option>🏕️</option></select></div>
+          <div class="field"><label for="item-emoji">Émoticône</label><input id="item-emoji" required placeholder="Ex. 🔧 ou 🧰🛠️"><div id="emoji-suggestions" class="suggestions" aria-label="Suggestions d’émoticônes"></div><span class="help">Une ou plusieurs émoticônes sont acceptées. Les suggestions se basent sur le nom de l’objet.</span></div>
           <div class="field"><label for="item-whatsapp">Numéro WhatsApp</label><input id="item-whatsapp" required inputmode="tel" placeholder="Ex. +33 6 12 34 56 78"><span class="help">Il sera visible par les habitants et utilisé pour le bouton WhatsApp.</span></div>
           <div class="field"><label for="item-description">Description</label><input id="item-description" placeholder="Accessoires, conditions de prêt…"></div>
           <div class="field full"><button class="submit" id="submit-button" type="submit">Ajouter au catalogue</button></div>
         </div>
       </form>
-      <div class="notice">Pour retirer un objet : cliquez sur le bouton « Retirer cet objet » présent sur sa fiche, puis saisissez le code reçu après l'ajout. L'administrateur peut aussi supprimer directement une ligne dans Google Sheets.</div>
+      <div class="notice">Le code affiché après l'ajout permet de modifier l'objet, de changer son statut ou de le retirer. L'administrateur peut aussi supprimer directement une ligne dans Google Sheets.</div>
     </section>
   </main>
+
+  <dialog id="help-dialog">
+    <div class="dialog-content">
+      <h2>Besoin d’aide ?</h2>
+      <p>Pour une question, un problème, une modification ou un code de gestion perdu, contactez <strong>Benjamin dans le groupe WhatsApp de la copropriété</strong>.</p>
+      <p>Précisez le nom de l’objet concerné et, si possible, votre prénom ou numéro d’appartement.</p>
+      <div class="dialog-actions"><button id="close-help" class="cancel-button" type="button">Fermer</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="edit-dialog">
+    <form id="edit-form" class="dialog-content">
+      <h2>Modifier mon objet</h2>
+      <p>Les changements seront enregistrés dans le catalogue partagé.</p>
+      <input id="edit-id" type="hidden">
+      <input id="edit-code" type="hidden">
+      <div class="form-grid">
+        <div class="field"><label for="edit-name">Objet</label><input id="edit-name" required></div>
+        <div class="field"><label for="edit-owner">Prénom ou appartement</label><input id="edit-owner" required></div>
+        <div class="field"><label for="edit-category">Catégorie</label><select id="edit-category" required><option value="bricolage">Bricolage</option><option value="cuisine">Cuisine</option><option value="ménage">Ménage</option><option value="extérieur">Extérieur</option><option value="autre">Autre</option></select></div>
+        <div class="field"><label for="edit-emoji">Émoticône(s)</label><input id="edit-emoji" required placeholder="Ex. 🔧🛠️"></div>
+        <div class="field"><label for="edit-whatsapp">Numéro WhatsApp</label><input id="edit-whatsapp" required inputmode="tel"></div>
+        <div class="field"><label for="edit-available">Statut</label><select id="edit-available"><option value="true">Disponible</option><option value="false">Indisponible</option></select></div>
+        <div class="field full"><label for="edit-description">Description</label><textarea id="edit-description"></textarea></div>
+      </div>
+      <div class="dialog-actions"><button id="close-dialog" class="cancel-button" type="button">Annuler</button><button class="submit" type="submit">Enregistrer les modifications</button></div>
+    </form>
+  </dialog>
 
   <footer>Un petit geste entre voisins peut éviter un achat qui ne servira presque jamais.</footer>
 
   <script>
     // Après le déploiement du script Google Apps Script, coller ici son URL /exec.
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzrbC4nhw4Jv_bJZpEkIAFKEFFRA7LRGM1N8CR-Y3yIDj78oA8aCHTENv79c01UK0oC/exec';
+    const API_URL = '';
     const DEMO_ITEMS = [
       { id:'demo-1', name:'Aspirateur de chantier', category:'bricolage', emoji:'🧹', owner:'Alexandre, appartement 12', whatsapp:'', description:'Pour poussières, gravats et petits travaux.', available:true },
       { id:'demo-2', name:'Perceuse-visseuse', category:'bricolage', emoji:'🔧', owner:'Sophie, appartement 7', whatsapp:'', description:'Sans fil, avec chargeur et embouts courants.', available:true },
@@ -155,6 +223,9 @@
     function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c])); }
     function categoryLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Autre'; }
     function setStatus(message, error = false) { statusBox.textContent = message; statusBox.classList.toggle('error', error); }
+    function codeKey(id) { return `duhesme-code-${id}`; }
+    function saveCode(id, code) { localStorage.setItem(codeKey(id), code); }
+    function storedCode(id) { return localStorage.getItem(codeKey(id)) || ''; }
     function whatsappUrl(phone, itemName) {
       let digits = String(phone || '').replace(/\D/g, '');
       if (digits.startsWith('0')) digits = '33' + digits.slice(1);
@@ -162,93 +233,114 @@
       const text = encodeURIComponent(`Bonjour, je vous contacte au sujet du prêt de « ${itemName} » dans la copropriété.`);
       return `https://wa.me/${digits}?text=${text}`;
     }
+    function showCode(itemName, id, code) {
+      saveCode(id, code);
+      $('#code-object').textContent = itemName;
+      $('#code-value').textContent = code;
+      $('#code-box').hidden = false;
+    }
+    function emojiSuggestions(text) {
+      const value = String(text || '').toLowerCase();
+      const suggestions = [];
+      const add = (...icons) => icons.forEach(icon => { if (!suggestions.includes(icon)) suggestions.push(icon); });
+      if (/aspir|ménage|nettoy|balai|poussi/.test(value)) add('🧹', '🧽', '🧼');
+      if (/perceuse|visseuse|outil|bricol|marteau|tournevis/.test(value)) add('🔧', '🛠️', '🔨');
+      if (/raclette|fromage|fondue|cuisine|four|grill|crêpe/.test(value)) add('🧀', '🍲', '🍳');
+      if (/échelle|escabeau/.test(value)) add('🪜');
+      if (/jardin|plante|tondeuse|extérieur/.test(value)) add('🌿', '🌱', '🪴');
+      if (/vélo|bike/.test(value)) add('🚲', '🚴');
+      if (/élect|chargeur|appareil/.test(value)) add('🔌', '⚡');
+      if (/jeu|jouet|console/.test(value)) add('🎲', '🎮');
+      if (/camping|tente|plein air/.test(value)) add('🏕️', '⛺');
+      if (!suggestions.length) add('📦', '✨', '👍');
+      return suggestions;
+    }
+    function renderSuggestions() {
+      const box = $('#emoji-suggestions'); box.innerHTML = '';
+      emojiSuggestions($('#item-name').value).forEach(icon => {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'suggestion'; button.textContent = icon; button.title = `Utiliser ${icon}`;
+        button.addEventListener('click', () => { const field = $('#item-emoji'); field.value = field.value ? `${field.value}${icon}` : icon; field.focus(); });
+        box.appendChild(button);
+      });
+    }
 
     async function loadItems() {
       if (!API_URL) {
-        items = DEMO_ITEMS;
-        setStatus('Mode aperçu actif. Après avoir collé l’URL Google Apps Script dans le fichier, les données seront partagées avec toute la copropriété.');
-        render();
-        return;
+        items = DEMO_ITEMS; setStatus('Mode aperçu actif. Après avoir collé l’URL Google Apps Script dans le fichier, les données seront partagées avec toute la copropriété.'); render(); return;
       }
       try {
         const response = await fetch(`${API_URL}?action=list`, { cache:'no-store' });
-        const data = await response.json();
-        if (!data.ok) throw new Error(data.error || 'Erreur de lecture');
-        items = data.items || [];
-        setStatus('Catalogue synchronisé avec Google Sheets.');
-        render();
-      } catch (error) {
-        items = [];
-        setStatus('Impossible de charger le catalogue Google Sheets. Vérifiez l’URL du script et son accès public.', true);
-        render();
-      }
+        const data = await response.json(); if (!data.ok) throw new Error(data.error || 'Erreur de lecture');
+        items = data.items || []; setStatus('Catalogue synchronisé avec Google Sheets.'); render();
+      } catch (error) { items = []; setStatus('Impossible de charger le catalogue Google Sheets. Vérifiez l’URL du script et son accès public.', true); render(); }
     }
 
     function render() {
       const query = $('#search').value.trim().toLowerCase();
-      const selectedCategory = $('#category').value;
-      const selectedAvailability = $('#availability').value;
+      const selectedCategory = $('#category').value; const selectedAvailability = $('#availability').value;
       const filtered = items.filter(item => {
         const text = `${item.name} ${item.owner} ${item.description}`.toLowerCase();
         return (!query || text.includes(query)) && (selectedCategory === 'all' || item.category === selectedCategory) && (selectedAvailability === 'all' || (selectedAvailability === 'available' && item.available) || (selectedAvailability === 'unavailable' && !item.available));
       });
       $('#count').textContent = `${filtered.length} objet${filtered.length > 1 ? 's' : ''}`;
-      const cards = $('#cards');
-      cards.innerHTML = '';
+      const cards = $('#cards'); cards.innerHTML = '';
       if (!filtered.length) { cards.innerHTML = '<div class="empty">Aucun objet ne correspond à votre recherche.</div>'; return; }
       filtered.forEach(item => {
-        const card = document.createElement('article');
-        card.className = 'card';
-        const link = whatsappUrl(item.whatsapp, item.name);
-        card.innerHTML = `
-          <div class="card-top"><div class="icon" aria-hidden="true">${escapeHtml(item.emoji || '📦')}</div><span class="tag">${escapeHtml(categoryLabel(item.category))}</span></div>
-          <div><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description || 'Pas de description renseignée.')}</p></div>
-          <div class="owner"><strong>${escapeHtml(item.owner)}</strong><br><span>${item.available ? 'Disponible' : 'Indisponible'}</span>
-            <div class="actions">
-              ${link ? `<a class="contact" href="${link}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="help">Numéro WhatsApp non renseigné</span>'}
-              ${item.id && !String(item.id).startsWith('demo-') ? `<button class="remove" type="button" data-id="${escapeHtml(item.id)}">🗑️ Retirer cet objet</button>` : ''}
-            </div>
-          </div>`;
+        const card = document.createElement('article'); card.className = 'card';
+        const link = whatsappUrl(item.whatsapp, item.name); const canManage = item.id && !String(item.id).startsWith('demo-');
+        card.innerHTML = `<div class="card-top"><div class="icon" aria-hidden="true">${escapeHtml(item.emoji || '📦')}</div><span class="tag">${escapeHtml(categoryLabel(item.category))}</span></div><div><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description || 'Pas de description renseignée.')}</p></div><div class="owner"><strong>${escapeHtml(item.owner)}</strong><br><span>${item.available ? 'Disponible' : 'Indisponible'}</span><div class="actions">${link ? `<a class="contact" href="${link}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="help">Numéro WhatsApp non renseigné</span>'}${canManage ? `<button class="remove edit-button" type="button" data-id="${escapeHtml(item.id)}">✏️ Modifier</button><button class="remove" type="button" data-id="${escapeHtml(item.id)}">🗑️ Retirer</button>` : ''}</div></div>`;
         cards.appendChild(card);
       });
-      cards.querySelectorAll('.remove').forEach(button => button.addEventListener('click', () => removeItem(button.dataset.id)));
+      cards.querySelectorAll('.edit-button').forEach(button => button.addEventListener('click', () => editItem(button.dataset.id)));
+      cards.querySelectorAll('.remove:not(.edit-button)').forEach(button => button.addEventListener('click', () => removeItem(button.dataset.id)));
     }
 
+    async function findItemByCode(code) {
+      const result = await post({ action:'find', deleteCode:code.trim().toUpperCase() });
+      if (!result.ok) throw new Error(result.error || 'Code incorrect ou objet introuvable.'); return result.item;
+    }
+    function openEditDialog(item, code) {
+      $('#edit-id').value = item.id; $('#edit-code').value = code; $('#edit-name').value = item.name || ''; $('#edit-owner').value = item.owner || '';
+      $('#edit-category').value = item.category || 'autre'; $('#edit-emoji').value = item.emoji || '📦'; $('#edit-whatsapp').value = item.whatsapp || ''; $('#edit-available').value = String(Boolean(item.available)); $('#edit-description').value = item.description || '';
+      $('#edit-dialog').showModal();
+    }
+    async function editItem(id) {
+      let code = storedCode(id); if (!code) code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.') || ''; if (!code) return;
+      try { const item = await findItemByCode(code); saveCode(item.id, code.trim().toUpperCase()); openEditDialog(item, code.trim().toUpperCase()); } catch (error) { setStatus(error.message, true); }
+    }
     async function removeItem(id) {
-      const code = prompt('Entrez le code de retrait reçu lors de l’ajout de cet objet.');
-      if (!code) return;
-      if (!API_URL) { setStatus('Le retrait sera disponible après la configuration de Google Sheets.', true); return; }
-      try {
-        const response = await post({ action:'delete', id, deleteCode:code.trim() });
-        if (!response.ok) throw new Error(response.error || 'Code incorrect');
-        setStatus('Objet retiré du catalogue.');
-        await loadItems();
-      } catch (error) { setStatus(error.message || 'Impossible de retirer cet objet.', true); }
+      let code = storedCode(id); if (!code) code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.') || ''; if (!code || !confirm('Retirer définitivement cet objet du catalogue ?')) return;
+      try { const response = await post({ action:'delete', id, deleteCode:code.trim().toUpperCase() }); if (!response.ok) throw new Error(response.error || 'Code incorrect'); localStorage.removeItem(codeKey(id)); setStatus('Objet retiré du catalogue.'); await loadItems(); } catch (error) { setStatus(error.message || 'Impossible de retirer cet objet.', true); }
     }
-
-    async function post(data) {
-      const response = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' }, body:new URLSearchParams(data) });
-      return response.json();
-    }
+    async function post(data) { const response = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' }, body:new URLSearchParams(data) }); return response.json(); }
 
     $('#add-form').addEventListener('submit', async event => {
-      event.preventDefault();
-      if (!API_URL) { setStatus('Le formulaire sera actif après la configuration de Google Sheets. Le mode aperçu ne modifie pas une base partagée.', true); return; }
-      const button = $('#submit-button');
-      button.disabled = true;
+      event.preventDefault(); if (!API_URL) { setStatus('Le formulaire sera actif après la configuration de Google Sheets. Le mode aperçu ne modifie pas une base partagée.', true); return; }
+      const button = $('#submit-button'); button.disabled = true;
       try {
-        const result = await post({ action:'add', name:$('#item-name').value.trim(), owner:$('#item-owner').value.trim(), category:$('#item-category').value, emoji:$('#item-emoji').value, whatsapp:$('#item-whatsapp').value.trim(), description:$('#item-description').value.trim() });
+        const result = await post({ action:'add', name:$('#item-name').value.trim(), owner:$('#item-owner').value.trim(), category:$('#item-category').value, emoji:$('#item-emoji').value.trim(), whatsapp:$('#item-whatsapp').value.trim(), description:$('#item-description').value.trim() });
         if (!result.ok) throw new Error(result.error || 'Impossible d’ajouter l’objet');
-        event.target.reset();
-        await loadItems();
-        setStatus(`Objet ajouté. Votre code de retrait est : ${result.deleteCode}. Conservez-le précieusement. Pour retirer cet objet plus tard, cliquez sur « Retirer cet objet » puis saisissez ce code.`);
-        $('#catalogue-title').scrollIntoView({ behavior:'smooth' });
-      } catch (error) { setStatus(error.message || 'Impossible d’ajouter l’objet.', true); }
-      finally { button.disabled = false; }
+        const name = $('#item-name').value.trim(); const id = result.id; event.target.reset(); await loadItems(); showCode(name, id, result.deleteCode); setStatus('Objet ajouté. Le code de gestion est affiché en grand ci-dessus et a été conservé sur cet appareil.'); $('#code-box').scrollIntoView({ behavior:'smooth', block:'center' });
+      } catch (error) { setStatus(error.message || 'Impossible d’ajouter l’objet.', true); } finally { button.disabled = false; }
     });
-
-    ['#search','#category','#availability'].forEach(selector => $(selector).addEventListener('input', render));
-    loadItems();
+    $('#manage-button').addEventListener('click', async () => {
+      const code = $('#manage-code').value.trim().toUpperCase(); if (!code) { setStatus('Collez d’abord votre code de gestion.', true); return; }
+      if (!API_URL) { setStatus('La gestion sera disponible après la configuration de Google Sheets.', true); return; }
+      try { const item = await findItemByCode(code); saveCode(item.id, code); openEditDialog(item, code); } catch (error) { setStatus(error.message, true); }
+    });
+    $('#edit-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      try { const result = await post({ action:'update', id:$('#edit-id').value, deleteCode:$('#edit-code').value, name:$('#edit-name').value.trim(), owner:$('#edit-owner').value.trim(), category:$('#edit-category').value, emoji:$('#edit-emoji').value.trim(), whatsapp:$('#edit-whatsapp').value.trim(), description:$('#edit-description').value.trim(), available:$('#edit-available').value }); if (!result.ok) throw new Error(result.error || 'Impossible de modifier l’objet.'); $('#edit-dialog').close(); setStatus('Objet modifié.'); await loadItems(); } catch (error) { setStatus(error.message, true); }
+    });
+    $('#close-dialog').addEventListener('click', () => $('#edit-dialog').close());
+    $('#copy-code').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#code-value').textContent); $('#copy-code').textContent = 'Copié !'; setTimeout(() => $('#copy-code').textContent = 'Copier', 1500); } catch (_) { setStatus('Sélectionnez le code et copiez-le manuellement.'); } });
+    $('#item-name').addEventListener('input', renderSuggestions); renderSuggestions();
+    const openHelp = () => $('#help-dialog').showModal();
+    $('#admin-contact').addEventListener('click', openHelp);
+    $('#code-help').addEventListener('click', openHelp);
+    $('#close-help').addEventListener('click', () => $('#help-dialog').close());
+    ['#search','#category','#availability'].forEach(selector => $(selector).addEventListener('input', render)); loadItems();
   </script>
 </body>
 </html>
