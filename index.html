@@ -90,7 +90,7 @@
     .notice { margin-top:13px; color:var(--muted); font-size:.83rem; }
     footer { padding:25px 0 35px; color:var(--muted); font-size:.85rem; text-align:center; }
     @media (max-width:800px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } }
-    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:none; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .add-box { padding:21px; } }
+    @media (max-width:560px) { header { padding-bottom:60px; } nav { margin-bottom:52px; } .nav-link { display:inline-flex; padding:8px 11px; font-size:.82rem; } .toolbar,.cards,.how,.form-grid { grid-template-columns:1fr; } .toolbar input,.field.full { grid-column:auto; } .add-box { padding:21px; } }
   </style>
 </head>
 <body>
@@ -98,7 +98,7 @@
     <div class="container">
       <nav>
         <div class="brand">Boîte à objets 99 rue Duhesme <span>●</span></div>
-        <a class="nav-link" href="#ajouter">Prêter un objet</a>
+        <a class="nav-link" href="#ajouter">＋ Ajouter un objet</a>
       </nav>
       <div class="hero">
         <p class="eyebrow">99 rue Duhesme, partage d’outils</p>
@@ -116,7 +116,7 @@
       <span id="code-value" class="code-value"></span>
       <button id="copy-code" class="copy-button" type="button">Copier</button>
       <button id="code-help" class="copy-button" type="button">🆘 Besoin d’aide ?</button>
-      <small>Conservez ce code. Il permet de modifier le statut, modifier les informations ou retirer l’objet.</small>
+      <small>Conservez ce code. Il sera demandé à chaque modification ou suppression de l’objet.</small>
     </div>
     <section class="toolbar" aria-label="Filtres">
       <input id="search" type="search" placeholder="Rechercher un objet…" aria-label="Rechercher un objet">
@@ -149,20 +149,11 @@
       <article class="step"><span class="step-number">3</span><h3>Je rapporte</h3><p>Je prends soin de l'objet et je le rends propre et complet.</p></article>
     </section>
 
-    <section class="manage-box" aria-labelledby="manage-title">
-      <h2 id="manage-title">Gérer mon objet</h2>
-      <p>Collez le code reçu lors de l’ajout pour modifier les informations, changer le statut ou retirer votre objet.</p>
-      <div class="manage-row">
-        <input id="manage-code" type="text" placeholder="Ex. A8F3K2P1" autocomplete="off" spellcheck="false">
-        <button id="manage-button" class="manage-button" type="button">Gérer mon objet</button>
-        <button id="admin-contact" class="admin-contact" type="button">🆘 Aide / problème / code perdu</button>
-      </div>
-      <div class="notice">Code perdu, problème ou demande de modification ? Cliquez sur le bouton d’aide et contactez Benjamin dans le groupe WhatsApp de la copropriété.</div>
-    </section>
+
 
     <section class="add-box" id="ajouter" aria-labelledby="add-title">
       <h2 id="add-title">Ajouter un objet à prêter</h2>
-      <p>Après l'ajout, un code de retrait personnel sera affiché. Conservez-le, il permettra de retirer votre objet plus tard.</p>
+      <p>Après l'ajout, un code de gestion personnel sera affiché en grand. Il sera demandé pour modifier ou retirer votre objet.</p>
       <form id="add-form">
         <div class="form-grid">
           <div class="field"><label for="item-name">Objet</label><input id="item-name" required placeholder="Ex. Nettoyeur vapeur"></div>
@@ -175,6 +166,17 @@
         </div>
       </form>
       <div class="notice">Le code affiché après l'ajout permet de modifier l'objet, de changer son statut ou de le retirer. L'administrateur peut aussi supprimer directement une ligne dans Google Sheets.</div>
+    </section>
+
+    <section class="manage-box" aria-labelledby="manage-title">
+      <h2 id="manage-title">Gérer mon objet</h2>
+      <p>Collez le code reçu lors de l’ajout pour modifier les informations, changer le statut ou retirer votre objet.</p>
+      <div class="manage-row">
+        <input id="manage-code" type="text" placeholder="Ex. A8F3K2P1" autocomplete="off" spellcheck="false">
+        <button id="manage-button" class="manage-button" type="button">Gérer mon objet</button>
+        <button id="admin-contact" class="admin-contact" type="button">🆘 Aide / problème / code perdu</button>
+      </div>
+      <div class="notice">Code perdu, problème ou demande de modification ? Cliquez sur le bouton d’aide et contactez Benjamin dans le groupe WhatsApp de la copropriété.</div>
     </section>
   </main>
 
@@ -223,9 +225,6 @@
     function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c])); }
     function categoryLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Autre'; }
     function setStatus(message, error = false) { statusBox.textContent = message; statusBox.classList.toggle('error', error); }
-    function codeKey(id) { return `duhesme-code-${id}`; }
-    function saveCode(id, code) { localStorage.setItem(codeKey(id), code); }
-    function storedCode(id) { return localStorage.getItem(codeKey(id)) || ''; }
     function whatsappUrl(phone, itemName) {
       let digits = String(phone || '').replace(/\D/g, '');
       if (digits.startsWith('0')) digits = '33' + digits.slice(1);
@@ -234,7 +233,6 @@
       return `https://wa.me/${digits}?text=${text}`;
     }
     function showCode(itemName, id, code) {
-      saveCode(id, code);
       $('#code-object').textContent = itemName;
       $('#code-value').textContent = code;
       $('#code-box').hidden = false;
@@ -306,12 +304,14 @@
       $('#edit-dialog').showModal();
     }
     async function editItem(id) {
-      let code = storedCode(id); if (!code) code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.') || ''; if (!code) return;
-      try { const item = await findItemByCode(code); saveCode(item.id, code.trim().toUpperCase()); openEditDialog(item, code.trim().toUpperCase()); } catch (error) { setStatus(error.message, true); }
+      const code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.');
+      if (!code || !code.trim()) return;
+      try { const item = await findItemByCode(code); openEditDialog(item, code.trim().toUpperCase()); } catch (error) { setStatus(error.message, true); }
     }
     async function removeItem(id) {
-      let code = storedCode(id); if (!code) code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.') || ''; if (!code || !confirm('Retirer définitivement cet objet du catalogue ?')) return;
-      try { const response = await post({ action:'delete', id, deleteCode:code.trim().toUpperCase() }); if (!response.ok) throw new Error(response.error || 'Code incorrect'); localStorage.removeItem(codeKey(id)); setStatus('Objet retiré du catalogue.'); await loadItems(); } catch (error) { setStatus(error.message || 'Impossible de retirer cet objet.', true); }
+      const code = prompt('Entrez le code de gestion reçu lors de l’ajout de cet objet.');
+      if (!code || !code.trim() || !confirm('Retirer définitivement cet objet du catalogue ?')) return;
+      try { const response = await post({ action:'delete', id, deleteCode:code.trim().toUpperCase() }); if (!response.ok) throw new Error(response.error || 'Code incorrect'); setStatus('Objet retiré du catalogue.'); await loadItems(); } catch (error) { setStatus(error.message || 'Impossible de retirer cet objet.', true); }
     }
     async function post(data) { const response = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' }, body:new URLSearchParams(data) }); return response.json(); }
 
@@ -327,7 +327,7 @@
     $('#manage-button').addEventListener('click', async () => {
       const code = $('#manage-code').value.trim().toUpperCase(); if (!code) { setStatus('Collez d’abord votre code de gestion.', true); return; }
       if (!API_URL) { setStatus('La gestion sera disponible après la configuration de Google Sheets.', true); return; }
-      try { const item = await findItemByCode(code); saveCode(item.id, code); openEditDialog(item, code); } catch (error) { setStatus(error.message, true); }
+      try { const item = await findItemByCode(code); openEditDialog(item, code); } catch (error) { setStatus(error.message, true); }
     });
     $('#edit-form').addEventListener('submit', async event => {
       event.preventDefault();
